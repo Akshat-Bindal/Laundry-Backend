@@ -1,80 +1,89 @@
-import Cart from '../models/Cart.js';
-import User from '../models/User.js';
-import Order from '../models/Order.js';
+import Order from "../models/Order.js";
+import Service from "../models/Service.js";
+import Invoice from "../models/Invoice.js";
+import { generateInvoicePDF } from "../utils/invoiceGenerator.js"; 
 
-// Checkout → create order
+
+const calculateSubtotal = (items) => {
+  return items.reduce((sum, i) => sum + i.total, 0);
+};
+
 export const checkout = async (req, res) => {
-  const cart = await Cart.findOne({ user: req.user._id }).populate({
-    path: 'items.service',
-    populate: { path: 'category', select: 'code' }
-  });
-  if (!cart || cart.items.length === 0) return res.status(400).json({ message: 'Cart empty' });
+  try {
+    const { services, urgency,shippingAddresses, pickup_time } = req.body;
 
-  const user = await User.findById(req.user._id);
-  const selected = user.addresses.id(cart.selectedAddressId);
-  if (!selected) return res.status(400).json({ message: 'Address not found' });
-
-  const items = cart.items.map(i => ({
-    service: i.service._id,
-    name: i.service.name,
-    categoryCode: i.service.category.code,
-    quantity: i.quantity,
-    weightKg: i.weightKg,
-    unitPrice: i.unitPrice,
-    lineTotal: i.lineTotal
-  }));
-
-  const order = await Order.create({
-    customer: req.user._id,
-    items,
-    subtotal: cart.subtotal,
-    pickupTime: cart.pickupTime,
-    deliveryAddress: selected.toObject(),
-    status: 'order_requested',
-    statusHistory: [{ status: 'order_requested', note: 'Order placed by customer' }]
-  });
-
-  cart.items = [];
-  cart.subtotal = 0;
-  await cart.save();
-
-  res.status(201).json(order);
-};
-
-// My orders
-export const myOrders = async (req, res) => {
-  const orders = await Order.find({ customer: req.user._id }).sort('-createdAt');
-  res.json(orders);
-};
-
-// Pickup weight update
-export const updatePickupDetails = async (req, res) => {
-  const { id } = req.params;
-  const { itemsWeight } = req.body;
-
-  const order = await Order.findById(id).populate('items.service');
-  if (!order) return res.status(404).json({ message: 'Order not found' });
-
-  itemsWeight.forEach(({ itemIndex, weightKg }) => {
-    const item = order.items[itemIndex];
-    if (item && item.categoryCode.includes('WASH')) {
-      item.weightKg = weightKg;
-      item.lineTotal = weightKg * item.unitPrice;
+    if (!services || services.length === 0) {
+      return res.status(400).json({ message: "No services selected" });
     }
-  });
 
-  order.subtotal = order.items.reduce((s, i) => s + i.lineTotal, 0);
-  order.weightTotalKg = order.items.reduce((s, i) => s + (i.weightKg || 0), 0);
+    const dbServices = await Service.find({
+    _id: { $in: services.map((s) => s.service) },
+    }).populate("category");
 
-  order.status = 'order_pickup';
-  order.statusHistory.push({
-    status: 'order_pickup',
-    note: 'Clothes picked up & weight recorded',
-    by: req.user._id
-  });
+    if (dbServices.length !== services.length) {
+      return res
+        .status(400)
+        .json({ message: "One or more services are invalid" });
+    }
 
-  await order.save();
-  res.json(order);
+    const items = services.map((s) => {
+      const dbService = dbServices.find((d) => d._id.equals(s.service));
+      let total = 0;
+
+
+      if (dbService.category && dbService.category.type === "weight") {
+
+        total = 0;
+      } else {
+        total = dbService.price * s.quantity;
+      }
+
+      return {
+        service: dbService._id,
+        serviceName: dbService.name,
+        quantity: s.quantity || null,
+        weightKg: s.weightKg || null,
+        price: dbService.price,
+        total,
+      };
+    });
+
+    const subtotal = calculateSubtotal(items);
+
+    let urgencyCharge = 0;
+    if (urgency === "next-day") urgencyCharge = subtotal + 100; 
+    if (urgency === "same-day") urgencyCharge = subtotal + 200; 
+
+    const total = subtotal + urgencyCharge;
+
+    const order = await Order.create({
+      user: req.user._id,
+      items,
+      urgency: urgency || "normal",
+      subtotal,
+      pickup_time,
+      urgencyCharge,
+      shippingAddresses,
+      total,
+      status: "requested",
+    });
+
+    res.status(201).json({ message: "Order placed successfully", order });
+  } catch (err) {
+    console.error("Checkout error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const myOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ user: req.user._id })
+      .sort("-createdAt")
+      .populate("items.service");
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const updateOrderStatus = async (req, res) => {
@@ -82,13 +91,50 @@ export const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const order = await Order.findOneAndUpdate(
-      { _id: id },
-      { status },
-      { new: true }
-    ).populate("user").populate("items.service");
+    let order = await Order.findById(id)
+      .populate("user")
+      .populate("items.service");
 
     if (!order) return res.status(404).json({ message: "Order not found" });
+
+    order.status = status;
+    await order.save();
+
+    if (status === "ready" && !order.invoice) {
+      const populatedUser = {
+        name: order.user.name,
+        phone: order.user.phone,
+        addresses: order.shippingAddress,
+      };
+
+      const invoiceUrl = await generateInvoicePDF(order, populatedUser);
+
+      const invoice = await Invoice.create({
+        invoiceNo: "INV-" + order._id.toString().slice(-6),
+        order: order._id,
+        customerName: order.user.name,
+        customerPhone: order.user.phone,
+        customerAddress: order.shippingAddress || order.user.addresses?.[0] || "-",
+        items: order.items.map(item => ({
+          serviceName: item.serviceName,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+        })),
+        subtotal: order.subtotal,
+        urgencyCharge: order.urgencyCharge,
+        total: order.total,
+        invoiceUrl,
+      });
+
+      order.invoice = invoice._id;
+      await order.save();
+    }
+
+    order = await Order.findById(id)
+      .populate("user")
+      .populate("items.service")
+      .populate("invoice");
 
     res.json({ message: "Order status updated", order });
   } catch (err) {
@@ -96,6 +142,48 @@ export const updateOrderStatus = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const updatePickup = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { pickupDetails } = req.body;
+
+    const order = await Order.findById(orderId)
+  .populate({
+    path: "items.service",
+    populate: { path: "category" } // so category data comes in
+  });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    order.items.forEach((item) => {
+      const detail = pickupDetails.find(
+        (d) => d.serviceId === item.service._id.toString()
+      );
+      if (detail && item.service.category.type === "weight") {
+        item.weightKg = detail.weightKg;
+        item.total = detail.weightKg * item.service.price;
+      } else {
+        // fallback for piece-based
+        item.total = item.quantity * item.service.price;
+      }
+    });
+
+    // Safe subtotal calculation
+    order.subtotal = order.items.reduce(
+      (sum, i) => sum + (isNaN(i.total) ? 0 : i.total),
+      0
+    );
+    order.total = order.subtotal + (order.urgencyCharge || 0);
+
+    await order.save();
+
+    res.json({ message: "Pickup updated successfully", order });
+  } catch (err) {
+    console.error("Pickup update error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 export const getInvoice = async (req, res) => {
   try {

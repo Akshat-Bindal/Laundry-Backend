@@ -4,24 +4,21 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
 
-// 📌 Helper: create transporter each time
 const createTransporter = () =>
   nodemailer.createTransport({
-    service: "gmail", // using Gmail + app password
+    service: "gmail", 
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
   });
 
-// 📌 Generate 6-digit OTP
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// 1️⃣ Register user & send OTP
 export const register = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone,addresses } = req.body;
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "User already exists" });
 
@@ -33,8 +30,9 @@ export const register = async (req, res) => {
       email,
       phone,
       password: hashed,
+      addresses,
       otpCode: otp,
-      otpExpires: Date.now() + 10 * 60 * 1000, // 10 min
+      otpExpires: Date.now() + 10 * 60 * 1000,
     });
 
     const transporter = createTransporter();
@@ -57,7 +55,6 @@ export const register = async (req, res) => {
   }
 };
 
-// 2️⃣ Verify Email with OTP
 export const verifyEmail = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -79,7 +76,6 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// 3️⃣ Login (only if verified)
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -112,7 +108,6 @@ export const login = async (req, res) => {
   }
 };
 
-// 4️⃣ Forgot Password (send reset link)
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -126,7 +121,7 @@ export const forgotPassword = async (req, res) => {
       .digest("hex");
 
     user.resetPasswordToken = resetTokenHash;
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 min
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
@@ -142,7 +137,6 @@ export const forgotPassword = async (req, res) => {
 
     res.json({ 
       message: "Password reset link sent to email",
-      resetToken
     });
   } catch (err) {
     console.error("Forgot password error:", err);
@@ -150,7 +144,6 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// 5️⃣ Reset Password
 export const resetPassword = async (req, res) => {
   try {
     const { token } = req.params;

@@ -7,22 +7,36 @@ const orderSchema = new mongoose.Schema(
       {
         service: { type: mongoose.Schema.Types.ObjectId, ref: "Service" },
         serviceName: String,
-        quantity: Number,
-        price: Number,
+        quantity: { type: Number, default: 1 }, // for per-piece services
+        price: { type: Number, required: true }, // rate per kg or per piece
+        weightKg: { type: Number, default: 0 },  // for laundry-type services
+        total: { type: Number, default: 0 },     // calculated (qty * price OR weight * price)
       },
     ],
+    pickup_time: {
+      type: String,
+      enum: ["Morning", "Afternoon", "Evening"],
+    },
+    shippingAddress: { type: String },
     urgency: {
       type: String,
       enum: ["normal", "next-day", "same-day"],
       default: "normal",
     },
-    subtotal: Number,
+    subtotal: { type: Number, default: 0 },
     urgencyCharge: { type: Number, default: 0 },
-    total: Number,
+    total: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ["processing", "ready", "delivered"],
-      default: "processing",
+      enum: [
+        "requested",
+        "picked_up",
+        "processing",
+        "ready",
+        "out_for_delivery",
+        "delivered",
+      ],
+      default: "requested",
     },
     invoice: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice" },
   },
