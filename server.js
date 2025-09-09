@@ -11,6 +11,9 @@ import userRoutes from "./routes/userRoutes.js";
 
 connectDB();
 
+const app = express();
+app.use(express.json());
+
 const allowedOrigins = [
   "http://localhost:3000",
   "https://washingtons.in/" 
@@ -27,10 +30,6 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   credentials: true
 }));
-
-const app = express();
-app.use(express.json());
-
 
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
