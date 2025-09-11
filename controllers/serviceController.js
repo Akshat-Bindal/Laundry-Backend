@@ -7,17 +7,14 @@ export const listCategories = async (_req, res) => {
 };
 
 export const listServices = async (req, res) => {
-  const { categoryCode, q, limit = 100, page = 1 } = req.query;
-  const query = { isActive: true };
-  if (categoryCode) {
-    const cat = await ServiceCategory.findOne({ code: categoryCode });
-    if (cat) query.category = cat._id;
+  try {
+    const services = await Service.find({ isActive: true })
+      .populate("category", "name code pricingUnit") 
+      .sort("name"); 
+
+    res.json(services);
+  } catch (err) {
+    console.error("Error fetching services:", err);
+    res.status(500).json({ message: "Failed to fetch services" });
   }
-  if (q) query.$text = { $search: q };
-  const docs = await Service.find(query)
-    .populate('category', 'name code pricingUnit')
-    .skip((page - 1) * limit)
-    .limit(Number(limit))
-    .sort('name');
-  res.json(docs);
 };
