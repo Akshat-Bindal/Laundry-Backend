@@ -51,8 +51,8 @@ export const checkout = async (req, res) => {
     const subtotal = calculateSubtotal(items);
 
     let urgencyCharge = 0;
-    if (urgency === "next-day") urgencyCharge = subtotal + 100; 
-    if (urgency === "same-day") urgencyCharge = subtotal + 200; 
+    if (urgency === "next-day") urgencyCharge = 100; 
+    if (urgency === "same-day") urgencyCharge = 200; 
 
     const total = subtotal + urgencyCharge;
 
