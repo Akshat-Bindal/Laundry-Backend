@@ -3,7 +3,7 @@ import fs from "fs";
 import cloudinary from "../config/cloudinary.js";
 
 export async function generateInvoicePDF(order, populatedUser) {
-  const templateBytes = fs.readFileSync("templates/Washing Tons.pdf");
+  const templateBytes = fs.readFileSync("templates/Washing tons.pdf");
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page = pdfDoc.getPages()[0];
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
