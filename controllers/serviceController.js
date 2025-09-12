@@ -8,7 +8,7 @@ export const listCategories = async (_req, res) => {
 
 export const listServices = async (req, res) => {
   try {
-    const services = await Service.find().populate("category"); // fetch everything
+    const services = await Service.find().populate("category");
     res.json(services);
   } catch (err) {
     console.error("Error fetching services:", err);
