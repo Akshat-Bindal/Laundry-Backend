@@ -110,7 +110,7 @@ export const updateOrderStatus = async (req, res) => {
       const invoiceUrl = await generateInvoicePDF(order, populatedUser);
 
       const invoice = await Invoice.create({
-        invoiceNo: "INV-" + order._id.toString().slice(-6),
+        invoiceNo: "INV-" + order._id.toString().slice(-8),
         order: order._id,
         customerName: order.user.name,
         customerPhone: order.user.phone,

@@ -7,24 +7,33 @@ export async function generateInvoicePDF(order, populatedUser) {
   const pdfDoc = await PDFDocument.load(templateBytes);
   const page = pdfDoc.getPages()[0];
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Header
-  page.drawText(order._id.toString().slice(-6), { x: 420, y: 710, size: 12, font });
-  page.drawText(new Date(order.createdAt).toLocaleDateString(), { x: 430, y: 690, size: 12, font });
+  page.drawText(order._id.toString().slice(-8), { x: 420, y: 710, size: 13, boldFont });
+  page.drawText(new Date(order.createdAt).toLocaleDateString(), { x: 430, y: 690, size: 13, font });
 
   // Customer
-  page.drawText(populatedUser.name, { x: 70, y: 660, size: 13, font });
-  page.drawText(populatedUser.phone, { x: 70, y: 640, size: 13, font });
-  page.drawText(order.shippingAddress || order.user.addresses?.[0] || "-", { x: 70, y: 620, size: 13, font });
+  page.drawText(populatedUser.name, { x: 50, y: 660, size: 14, font });
+  page.drawText(order.shippingAddress || order.user.addresses?.[0] || "-", { x: 50, y: 620, size: 14, font });
+  page.drawText(populatedUser.phone, { x: 50, y: 640, size: 14, font });
 
   // Services
   let startY = 520;
   order.items.forEach((item, idx) => {
+    let lineTotal = item.price;
+    if (item.quantity != null) {
+      lineTotal *= item.quantity;
+    }
+    if (item.weightKg != null) {
+      lineTotal *= item.weightKg;
+    }
     const y = startY - idx * 20;
     page.drawText(item.serviceName, { x: 60, y, size: 12, font });
+    page.drawText(item.weightKg?.toString() || "-", { x: 230, y, size: 12, font });
     page.drawText(item.quantity.toString(), { x: 300, y, size: 12, font });
     page.drawText(item.price.toFixed(2), { x: 370, y, size: 12, font });
-    page.drawText((item.quantity * item.price).toFixed(2), { x: 470, y, size: 12, font });
+    page.drawText(lineTotal.toFixed(2), { x: 470, y, size: 12, font });
   });
 
   // Summary
