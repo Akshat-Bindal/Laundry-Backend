@@ -10,13 +10,13 @@ export async function generateInvoicePDF(order, populatedUser) {
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Header
-  page.drawText(order._id.toString().slice(-8), { x: 420, y: 710, size: 13, boldFont });
+  page.drawText(order._id.toString().slice(-8), { x: 90, y: 705, size: 13, boldFont });
   page.drawText(new Date(order.createdAt).toLocaleDateString(), { x: 430, y: 690, size: 13, font });
 
   // Customer
-  page.drawText(populatedUser.name, { x: 50, y: 660, size: 14, font });
-  page.drawText(order.shippingAddress || order.user.addresses?.[0] || "-", { x: 50, y: 620, size: 14, font });
-  page.drawText(populatedUser.phone, { x: 50, y: 640, size: 14, font });
+  page.drawText(populatedUser.name, { x: 35, y: 660, size: 14, font });
+  page.drawText(order.shippingAddress || order.user.addresses?.[0] || "-", { x: 35, y: 620, size: 14, font });
+  page.drawText(populatedUser.phone, { x: 35, y: 640, size: 14, font });
 
   // Services
   let startY = 520;
@@ -38,7 +38,7 @@ export async function generateInvoicePDF(order, populatedUser) {
 
   // Summary
   page.drawText(order.subtotal.toFixed(2), { x: 450, y: 180, size: 14, font });
-  page.drawText(order.urgencyCharge.toFixed(2), { x: 450, y: 130, size: 14, font });
+  page.drawText(order.urgencyCharge.toFixed(2), { x: 460, y: 133, size: 14, font });
   page.drawText(order.total.toFixed(2), { x: 450, y: 80, size: 14, font });
 
   // Save & upload
