@@ -1,7 +1,9 @@
+import dotenv from "dotenv";
+dotenv.config();
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import User from "../models/User.js";
 
 const createTransporter = () =>
@@ -16,9 +18,12 @@ const createTransporter = () =>
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 export const register = async (req, res) => {
   try {
-    const { name, email, password, phone,addresses } = req.body;
+    const { name, email, password, phone, addresses } = req.body;
+
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "User already exists" });
 
@@ -32,19 +37,25 @@ export const register = async (req, res) => {
       password: hashed,
       addresses,
       otpCode: otp,
-      otpExpires: Date.now() + 10 * 60 * 1000,
+      otpExpires: Date.now() + 10 * 60 * 1000, // 10 min
     });
 
-    const transporter = createTransporter();
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    // send OTP email via Resend
+    const { data, error } = await resend.emails.send({
+      from: "Your App <noreply@washingtons.in>", // or your domain
       to: email,
       subject: "Verify your Email",
-      html: `<p>Hello ${name},</p>
-             <p>Your OTP is: <b>${otp}</b></p>
-             <p>It expires in 10 minutes.</p>`,
+      html: `
+        <p>Hello ${name},</p>
+        <p>Your OTP is: <b>${otp}</b></p>
+        <p>It expires in 10 minutes.</p>
+      `,
     });
+
+    if (error) {
+      console.error("Resend error:", error);
+      return res.status(500).json({ message: "Email sending failed" });
+    }
 
     res
       .status(201)
@@ -114,6 +125,7 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // generate token + hash
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenHash = crypto
       .createHash("sha256")
@@ -121,23 +133,28 @@ export const forgotPassword = async (req, res) => {
       .digest("hex");
 
     user.resetPasswordToken = resetTokenHash;
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 min
     await user.save();
 
-    const resetUrl = `${process.env.FRONTEND_URL}/change-password/${resetToken}`;
-    const transporter = createTransporter();
+    const resetUrl = `${process.env.FRONTEND_URL}/change-password?token=${resetToken}`;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    // send email via Resend
+    const { data, error } = await resend.emails.send({
+      from: "Your App <noreply@washingtons.in>", // or your domain
       to: user.email,
       subject: "Password Reset Request",
-      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
-             <p>This link will expire in 15 minutes.</p>`,
+      html: `
+        <p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
+        <p>This link will expire in 15 minutes.</p>
+      `,
     });
 
-    res.json({ 
-      message: "Password reset link sent to email",
-    });
+    if (error) {
+      console.error("Resend error:", error);
+      return res.status(500).json({ message: "Email sending failed" });
+    }
+
+    res.json({ message: "Password reset link sent to email" });
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).json({ message: err.message });
