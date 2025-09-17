@@ -10,7 +10,7 @@ export async function generateInvoicePDF(order, populatedUser) {
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Header
-  page.drawText(order._id.toString().slice(-8), { x: 110, y: 710, size: 13, boldFont });
+  page.drawText(order._id.toString().slice(-8), { x: 150, y: 715, size: 13, boldFont });
   page.drawText(new Date(order.createdAt).toLocaleDateString(), { x: 430, y: 690, size: 13, font });
 
   // Customer
