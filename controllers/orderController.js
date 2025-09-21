@@ -250,3 +250,20 @@ export const getInvoice = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getAllInvoices = async (req, res) => {
+  try {
+    const invoices = await Invoice.find()
+      .populate("order", "status total createdAt") // optional: include order info
+      .sort({ createdAt: -1 }); // newest first
+
+    res.status(200).json({
+      success: true,
+      count: invoices.length,
+      data: invoices,
+    });
+  } catch (err) {
+    console.error("Error fetching invoices:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
