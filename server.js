@@ -5,7 +5,7 @@ import cors from "cors"
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
-import adminRoutes from './routes/adminRoutes.js';
+import getSummaryAnalytics from './routes/analyticsRoutes.js';
 import serviceRoutes from './routes/serviceRoutes.js';
 import userRoutes from "./routes/userRoutes.js";
 
@@ -37,7 +37,7 @@ app.get("/health", (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', getSummaryAnalytics);
 app.use('/api/services', serviceRoutes);
 app.use("/api/users", userRoutes);
 

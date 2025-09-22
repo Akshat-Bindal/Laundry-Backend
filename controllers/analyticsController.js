@@ -1,27 +1,41 @@
-import Order from '../models/Order.js';
-import dayjs from 'dayjs';
-import weekOfYear from 'dayjs/plugin/weekOfYear.js';
-dayjs.extend(weekOfYear);
+import Order from "../models/Order.js";
+import Invoice from "../models/Invoice.js";
+import User from "../models/User.js";
 
-const getAnalytics = async (req, res) => {
-  const { type, date, month, year, week } = req.query;
-  let start, end;
+export const getSummaryAnalytics = async (req, res) => {
+  try {
+    // 1️⃣ Total Sales (sum of all invoices total)
+    const totalSalesResult = await Invoice.aggregate([
+      { $group: { _id: null, total: { $sum: "$total" } } },
+    ]);
+    const totalSales = totalSalesResult[0]?.total || 0;
 
-  if (type === 'daily') {
-    start = dayjs(date).startOf('day').toDate();
-    end = dayjs(date).endOf('day').toDate();
-  } else if (type === 'weekly') {
-    start = dayjs().year(year).week(week).startOf('week').toDate();
-    end = dayjs().year(year).week(week).endOf('week').toDate();
-  } else {
-    start = dayjs(`${year}-${month}-01`).startOf('month').toDate();
-    end = dayjs(`${year}-${month}-01`).endOf('month').toDate();
+    // 2️⃣ Total Orders
+    const totalOrders = await Order.countDocuments();
+
+    // 3️⃣ Total Active Customers (unique users who placed an order)
+    const activeCustomersResult = await Order.distinct("user");
+    const totalActiveCustomers = activeCustomersResult.length;
+
+    // 4️⃣ Pending Orders (status = requested OR picked_up OR processing)
+    const pendingOrders = await Order.countDocuments({
+      status: { $in: ["requested", "picked_up", "processing"] },
+    });
+
+    res.status(200).json({
+      success: true,
+      analytics: {
+        totalSales,
+        totalOrders,
+        totalActiveCustomers,
+        pendingOrders,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching analytics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching analytics",
+    });
   }
-
-  const orders = await Order.find({ createdAt: { $gte: start, $lte: end } });
-  const summary = {};
-  orders.forEach(o => summary[o.orderType] = (summary[o.orderType] || 0) + 1);
-  res.json(summary);
 };
-
-export { getAnalytics };
