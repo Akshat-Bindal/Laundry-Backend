@@ -4,13 +4,13 @@ import { checkout, myOrders, getOrderById, getAllOrders, updateOrderStatus,updat
 
 const r = express.Router();
 
+r.get('/my', protect, myOrders);
 r.get('/', protect, getAllOrders);
 r.get("/:id", getOrderById);
-r.get('/my', protect, myOrders);
 r.post('/checkout', protect, checkout);
 r.patch('/:id/status', protect, authorize('admin'), updateOrderStatus);
 r.patch("/:orderId/weight",protect,updatePickup);
-r.get("/invoice", getAllInvoices);  
+r.get("/invoice", getAllInvoices);
 r.get("/:orderId/invoice", protect, getInvoice);
 
 export default r;
