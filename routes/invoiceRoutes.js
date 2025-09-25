@@ -6,6 +6,6 @@ const r = express.Router();
 
 r.get('/', protect, getAllInvoices);
 r.get('/my-invoices', protect, getMyInvoices);
-r.get('/:orderId', protect, getInvoice);      
+r.get('/:invoiceId', protect, getInvoice);
 
 export default r;

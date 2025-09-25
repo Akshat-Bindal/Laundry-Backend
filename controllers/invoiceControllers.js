@@ -3,16 +3,17 @@ import Order from "../models/Order.js";
 
 export const getInvoice = async (req, res) => {
   try {
-    const { orderId } = req.params;
+    const { invoiceId } = req.params;
 
-    const order = await Order.findById(orderId).populate("invoice");
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    const invoice = await Invoice.findById(invoiceId).populate({
+      path: "order",
+      populate: { path: "user", select: "name email" }, // optional, if you want user details
+    });
 
-    if (!order.invoice) {
-      return res.status(400).json({ message: "Invoice not generated yet" });
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
     }
 
-    const invoice = await Invoice.findById(order.invoice);
     res.json({ invoiceUrl: invoice.invoiceUrl, invoice });
   } catch (err) {
     res.status(500).json({ message: err.message });
