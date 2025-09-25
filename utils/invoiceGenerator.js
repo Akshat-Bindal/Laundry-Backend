@@ -46,10 +46,11 @@ export async function generateInvoicePDF(order, populatedUser) {
   const tempPath = `./invoice-${order._id}.pdf`;
   fs.writeFileSync(tempPath, pdfBytes);
 
-  const result = await cloudinary.uploader.upload(tempPath, {
-    folder: "invoices",
-    resource_type: "auto",
-  });
+const result = await cloudinary.uploader.upload(tempPath, {
+  folder: "invoices",
+  resource_type: "raw", // 👈 force raw upload for PDFs
+  format: "pdf"         // 👈 optional, makes sure Cloudinary stores as PDF
+});
 
   fs.unlinkSync(tempPath); 
   return result.secure_url;
