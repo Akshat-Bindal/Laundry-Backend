@@ -111,7 +111,11 @@ export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("user", "name email")
-      .populate("items.service", "name price")
+      .populate({
+        path: "items.service",
+        select: "name price category",
+        populate: { path: "category", select: "type name" } // ✅ fetch laundry type
+      })
       .populate("invoice", "invoiceNumber total");
 
     if (!order) {
@@ -149,35 +153,37 @@ export const updateOrderStatus = async (req, res) => {
     await order.save();
 
     if (status === "ready" && !order.invoice) {
-      const populatedUser = {
-        name: order.user.name,
-        phone: order.user.phone,
-        addresses: order.shippingAddress,
-      };
+  const populatedUser = {
+    name: order.user.name,
+    phone: order.user.phone,
+    addresses: order.shippingAddress,
+  };
 
-      const invoiceUrl = await generateInvoicePDF(order, populatedUser);
+  // still generate once (optional if you only want to check it works)
+  await generateInvoicePDF(order, populatedUser);
 
-      const invoice = await Invoice.create({
-        invoiceNo: "INV-" + order._id.toString().slice(-8),
-        order: order._id,
-        customerName: order.user.name,
-        customerPhone: order.user.phone,
-        customerAddress: order.shippingAddress || order.user.addresses?.[0] || "-",
-        items: order.items.map(item => ({
-          serviceName: item.serviceName,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.total,
-        })),
-        subtotal: order.subtotal,
-        urgencyCharge: order.urgencyCharge,
-        total: order.total,
-        invoiceUrl,
-      });
+  const invoice = await Invoice.create({
+    invoiceNo: "INV-" + order._id.toString().slice(-8),
+    order: order._id,
+    customerName: order.user.name,
+    customerPhone: order.user.phone,
+    customerAddress: order.shippingAddress || order.user.addresses?.[0] || "-",
+    items: order.items.map(item => ({
+      serviceName: item.serviceName,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total,
+    })),
+    subtotal: order.subtotal,
+    urgencyCharge: order.urgencyCharge,
+    total: order.total,
+  });
 
-      order.invoice = invoice._id;
-      await order.save();
-    }
+  order.invoice = invoice._id;
+  await order.save();
+}
+
+
 
     order = await Order.findById(id)
       .populate("user")

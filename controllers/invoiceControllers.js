@@ -1,5 +1,29 @@
+import { generateInvoicePDF } from "../utils/invoiceGenerator.js";
 import Invoice from "../models/Invoice.js";
 import Order from "../models/Order.js";
+
+export const getInvoicePdf = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const invoice = await Invoice.findById(invoiceId).populate({
+      path: "order",
+      populate: { path: "user" },
+    });
+
+    if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+    // 👇 Generate the PDF dynamically
+    const pdfBytes = await generateInvoicePDF(invoice.order, invoice.order.user);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline; filename=invoice.pdf");
+    res.send(Buffer.from(pdfBytes));
+  } catch (err) {
+    console.error("Error generating PDF:", err);
+    res.status(500).json({ message: "Server error generating invoice" });
+  }
+};
+
 
 export const getInvoice = async (req, res) => {
   try {

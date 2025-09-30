@@ -1,6 +1,5 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import fs from "fs";
-import cloudinary from "../config/cloudinary.js";
 
 export async function generateInvoicePDF(order, populatedUser) {
   const templateBytes = fs.readFileSync("templates/Washing tons.pdf");
@@ -9,8 +8,9 @@ export async function generateInvoicePDF(order, populatedUser) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
+
   // Header
-  page.drawText(order._id.toString().slice(-8), { x: 150, y: 715, size: 13, boldFont });
+  page.drawText(order._id.toString().slice(-6), { x: 150, y: 715, size: 13, boldFont });
   page.drawText(new Date(order.createdAt).toLocaleDateString(), { x: 430, y: 690, size: 13, font });
 
   // Customer
@@ -46,12 +46,5 @@ export async function generateInvoicePDF(order, populatedUser) {
   const tempPath = `./invoice-${order._id}.pdf`;
   fs.writeFileSync(tempPath, pdfBytes);
 
-const result = await cloudinary.uploader.upload(tempPath, {
-  folder: "invoices",
-  resource_type: "raw", // 👈 force raw upload for PDFs
-  format: "pdf"         // 👈 optional, makes sure Cloudinary stores as PDF
-});
-
-  fs.unlinkSync(tempPath); 
-  return result.secure_url;
+  return await pdfDoc.save();
 }
