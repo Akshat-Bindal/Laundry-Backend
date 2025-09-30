@@ -16,6 +16,7 @@ const app = express();
 app.use(express.json());
 
 const allowedOrigins = [
+  "https://washingtonslaundry.store",
   "http://localhost:3000",
   "https://washingtons.in" 
 ];
