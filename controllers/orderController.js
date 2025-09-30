@@ -110,7 +110,7 @@ export const getAllOrders = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("user", "name email")
+      .populate("user", "name email addresses phone")
       .populate({
         path: "items.service",
         select: "name price category",
